@@ -46,6 +46,8 @@
       --red: #FCA5A5;
       --red-bg: #450A0A;
     }
+
+    .date-pick::-webkit-calendar-picker-indicator { filter: invert(1); }
   }
 
   body {
@@ -204,6 +206,7 @@
     outline: none;
     transition: border-color 0.15s, box-shadow 0.15s;
     -webkit-appearance: none;
+    appearance: none;
   }
 
   input:focus, textarea:focus, select:focus {
@@ -218,9 +221,53 @@
 
   @media (max-width: 480px) {
     .row2, .row3 { grid-template-columns: 1fr; }
+    .generate-row { flex-direction: column; align-items: stretch; }
+    .generate-row .lang-toggle { align-self: center; }
   }
 
+  .generate-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 1rem;
+  }
+
+  .generate-row .btn-primary { margin-top: 0; flex: 1; }
+
   .ac-wrap { position: relative; }
+
+  .date-wrap { position: relative; }
+  .date-wrap input[type="text"] { padding-right: 36px; }
+
+  .date-pick {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    margin: 0;
+    border: none;
+    background: transparent;
+    color: transparent;
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  .date-pick::-webkit-calendar-picker-indicator {
+    opacity: 0.55;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .date-pick::-webkit-calendar-picker-indicator:hover { opacity: 1; }
+
+  .date-pick::-webkit-datetime-edit,
+  .date-pick::-webkit-inner-spin-button {
+    display: none;
+  }
 
   .ac-list {
     position: absolute;
@@ -302,15 +349,27 @@
   }
 
   .result-text {
+    display: block;
+    width: 100%;
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: 1.25rem;
     font-size: 15px;
+    font-family: inherit;
     line-height: 1.7;
     color: var(--text);
     white-space: pre-wrap;
     word-break: break-word;
+    resize: none;
+    overflow: hidden;
+    min-height: 120px;
+    outline: none;
+  }
+
+  .result-text:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(79, 127, 255, 0.12);
   }
 
   .result-actions {
@@ -402,20 +461,9 @@
 </head>
 <body>
 
-<header>
-  <div class="logo">
-    <div class="logo-dot"></div>
-    Annonces Transport
-  </div>
-  <div class="lang-toggle">
-    <button class="lang-btn active" onclick="setLang('fr')" id="btn-fr">🇫🇷 FR</button>
-    <button class="lang-btn" onclick="setLang('en')" id="btn-en">🇬🇧 EN</button>
-  </div>
-</header>
-
 <main>
   <h1>Générateur d'annonces</h1>
-  <p class="subtitle">Crée une annonce WhatsApp pour les transporteurs en quelques secondes.</p>
+  <p class="subtitle">Crée une annonce pour les transporteurs en quelques secondes.</p>
 
   <div class="tabs">
     <button class="tab active" onclick="switchTab('form')" id="tab-form">
@@ -435,14 +483,14 @@
         <div class="field">
           <label>Départ</label>
           <div class="ac-wrap">
-            <input type="text" id="f-depart" placeholder="CP ou ville…" autocomplete="off" oninput="autocomplete(this,'ac-depart')" onkeydown="acKeydown(event,'ac-depart','f-depart')" />
+            <input type="text" id="f-depart" placeholder="CP ou ville…" autocomplete="off" oninput="acSearch(this,'ac-depart')" onkeydown="acKeydown(event,'ac-depart','f-depart')" />
             <div class="ac-list" id="ac-depart"></div>
           </div>
         </div>
         <div class="field">
           <label>Arrivée</label>
           <div class="ac-wrap">
-            <input type="text" id="f-arrivee" placeholder="CP ou ville…" autocomplete="off" oninput="autocomplete(this,'ac-arrivee')" onkeydown="acKeydown(event,'ac-arrivee','f-arrivee')" />
+            <input type="text" id="f-arrivee" placeholder="CP ou ville…" autocomplete="off" oninput="acSearch(this,'ac-arrivee')" onkeydown="acKeydown(event,'ac-arrivee','f-arrivee')" />
             <div class="ac-list" id="ac-arrivee"></div>
           </div>
         </div>
@@ -453,28 +501,44 @@
           <input type="text" id="f-colisage" placeholder="ex. 3 palettes" />
         </div>
         <div class="field">
-          <label>Poids</label>
-          <input type="text" id="f-poids" placeholder="ex. 450 kg" />
-        </div>
-        <div class="field">
           <label>Dimensions</label>
           <input type="text" id="f-dims" placeholder="ex. 120×80×100" />
+        </div>
+        <div class="field">
+          <label>Poids</label>
+          <input type="text" id="f-poids" placeholder="ex. 450 kg" />
         </div>
       </div>
       <div class="row2">
         <div class="field">
-          <label>Date / créneau</label>
-          <input type="text" id="f-date" placeholder="ex. Lundi 8h-12h" />
+          <label>Chargement (date / créneau)</label>
+          <div class="date-wrap">
+            <input type="text" id="f-date" placeholder="ex. Mardi 8h-12h" />
+            <input type="date" class="date-pick" aria-label="Choisir une date" onchange="applyPickedDate(this,'f-date')" />
+          </div>
         </div>
         <div class="field">
-          <label>Contraintes</label>
-          <input type="text" id="f-contraintes" placeholder="ex. hayon, urgent, ADR" />
+          <label>Livraison (date / créneau)</label>
+          <div class="date-wrap">
+            <input type="text" id="f-livraison" placeholder="ex. Mercredi avant 17h" />
+            <input type="date" class="date-pick" aria-label="Choisir une date" onchange="applyPickedDate(this,'f-livraison')" />
+          </div>
         </div>
       </div>
+      <div class="field">
+        <label>Contraintes</label>
+        <input type="text" id="f-contraintes" placeholder="ex. hayon, urgent, ADR" />
+      </div>
     </div>
-    <button class="btn-primary" onclick="generateFromForm()" id="btn-form">
-      Générer l'annonce
-    </button>
+    <div class="generate-row">
+      <div class="lang-toggle">
+        <button class="lang-btn active" data-lang="fr" onclick="setLang('fr')">🇫🇷 FR</button>
+        <button class="lang-btn" data-lang="en" onclick="setLang('en')">🇬🇧 EN</button>
+      </div>
+      <button class="btn-primary" onclick="generateFromForm()" id="btn-form">
+        Générer l'annonce
+      </button>
+    </div>
   </div>
 
   <!-- TEXT PANEL -->
@@ -486,15 +550,21 @@
         <p class="hint">L'IA extrait les informations et formate l'annonce automatiquement.</p>
       </div>
     </div>
-    <button class="btn-primary" onclick="generateFromText()" id="btn-text">
-      Extraire et générer
-    </button>
+    <div class="generate-row">
+      <div class="lang-toggle">
+        <button class="lang-btn active" data-lang="fr" onclick="setLang('fr')">🇫🇷 FR</button>
+        <button class="lang-btn" data-lang="en" onclick="setLang('en')">🇬🇧 EN</button>
+      </div>
+      <button class="btn-primary" onclick="generateFromText()" id="btn-text">
+        Extraire et générer
+      </button>
+    </div>
   </div>
 
   <!-- RESULT -->
   <div id="result-area" class="result-area">
     <div class="section-divider">Résultat</div>
-    <div class="result-text" id="result-text"></div>
+    <textarea class="result-text" id="result-text"></textarea>
     <div class="result-actions">
       <button class="btn-sm" onclick="copyResult()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
@@ -504,10 +574,6 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
         Reformuler
       </button>
-      <button class="btn-sm" onclick="shareWhatsApp()">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-        WhatsApp
-      </button>
     </div>
   </div>
 </main>
@@ -515,16 +581,26 @@
 <div class="toast" id="toast"></div>
 
 <script>
-const API_KEY = 'VOTRE_CLE_ANTHROPIC_ICI';
-
 let currentLang = 'fr';
 let lastPrompt = '';
 
 /* ── LANG ── */
 function setLang(lang) {
   currentLang = lang;
-  document.getElementById('btn-fr').classList.toggle('active', lang === 'fr');
-  document.getElementById('btn-en').classList.toggle('active', lang === 'en');
+  document.querySelectorAll('.lang-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.lang === lang);
+  });
+}
+
+/* ── DATE PICKER ── */
+function applyPickedDate(dateInput, textInputId) {
+  const val = dateInput.value;
+  if (!val) return;
+  const [, m, d] = val.split('-');
+  const textInput = document.getElementById(textInputId);
+  textInput.value = `${d}/${m}` + (textInput.value ? ' ' + textInput.value : '');
+  dateInput.value = '';
+  textInput.focus();
 }
 
 /* ── TABS ── */
@@ -536,10 +612,14 @@ function switchTab(tab) {
   document.getElementById('result-area').classList.remove('visible');
 }
 
-/* ── AUTOCOMPLETE CP FRANCE (api.gouv.fr) ── */
+/* ── AUTOCOMPLETE VILLE/CP MONDE (Nominatim/OpenStreetMap) ── */
 let acTimers = {};
 
-async function autocomplete(input, listId) {
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+}
+
+async function acSearch(input, listId) {
   const q = input.value.trim();
   const list = document.getElementById(listId);
   clearTimeout(acTimers[listId]);
@@ -548,29 +628,34 @@ async function autocomplete(input, listId) {
   acTimers[listId] = setTimeout(async () => {
     try {
       const isNum = /^\d/.test(q);
-      const param = isNum ? `codePostal=${encodeURIComponent(q)}` : `nom=${encodeURIComponent(q)}&boost=population`;
-      const res = await fetch(`https://geo.api.gouv.fr/communes?${param}&fields=nom,codesPostaux,codeDepartement&limit=8`);
+      const param = isNum ? `postalcode=${encodeURIComponent(q)}` : `q=${encodeURIComponent(q)}`;
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?${param}&format=json&addressdetails=1&limit=8`);
       const data = await res.json();
       if (!data.length) { list.classList.remove('open'); return; }
 
-      const items = [];
-      data.forEach(c => {
-        const cps = isNum ? c.codesPostaux.filter(cp => cp.startsWith(q)) : c.codesPostaux.slice(0, 1);
-        cps.slice(0, 2).forEach(cp => {
-          items.push({ cp, nom: c.nom, dept: c.codeDepartement });
-        });
-      });
+      const items = data
+        .map(d => {
+          const addr = d.address || {};
+          const nom = addr.city || addr.town || addr.village || addr.municipality || addr.county || (d.display_name || '').split(',')[0];
+          const cp = addr.postcode || '';
+          const country = (addr.country_code || '').toUpperCase();
+          return { cp, nom, country };
+        })
+        .filter(it => it.nom);
 
-      list.innerHTML = items.slice(0, 8).map((it, i) =>
-        `<div class="ac-item" data-val="${it.cp} ${it.nom}" onclick="selectAC('${listId}','${input.id}','${it.cp} ${it.nom}')">
-          <span class="ac-cp">${it.cp}</span>
-          <span class="ac-city">${it.nom}</span>
-          <span class="ac-dept">${it.dept}</span>
+      list.innerHTML = items.map(it =>
+        `<div class="ac-item" data-val="${escapeHtml(`${it.country}${it.cp} ${it.nom}`.trim())}">
+          <span class="ac-cp">${escapeHtml(it.country + it.cp)}</span>
+          <span class="ac-city">${escapeHtml(it.nom)}</span>
+          <span class="ac-dept">${escapeHtml(it.country)}</span>
         </div>`
       ).join('');
+      list.querySelectorAll('.ac-item').forEach(el => {
+        el.addEventListener('click', () => selectAC(listId, input.id, el.dataset.val));
+      });
       list.classList.add('open');
     } catch(e) {}
-  }, 220);
+  }, 280);
 }
 
 function selectAC(listId, inputId, val) {
@@ -604,6 +689,8 @@ document.addEventListener('click', e => {
   });
 });
 
+document.getElementById('result-text').addEventListener('input', e => autoGrow(e.target));
+
 /* ── AI CALL ── */
 async function callClaude(userPrompt) {
   lastPrompt = userPrompt;
@@ -612,27 +699,53 @@ async function callClaude(userPrompt) {
   result.classList.remove('visible');
 
   const langInstruction = currentLang === 'fr'
-    ? 'Rédige l\'annonce en français.'
-    : 'Write the announcement in English.';
+    ? 'Rédige la dernière ligne (contraintes/instructions) en français.'
+    : 'Write the last line (constraints/instructions) in English. Write "tomorrow" in full, never abbreviate it as "tmrw".';
+
+  const now = new Date();
+  const weekdayFr = now.toLocaleDateString('fr-FR', { weekday: 'long' });
+  const weekdayEn = now.toLocaleDateString('en-US', { weekday: 'long' });
+  const dateContext = `Date du jour : ${now.toISOString().slice(0, 10)}, ${weekdayFr} (${weekdayEn} en anglais).`;
 
   const system = `Tu es un assistant pour un affréteur de transport express B2B.
-Tu génères des annonces courtes pour proposer des missions aux transporteurs sur WhatsApp.
-Format : 3 à 6 lignes maximum. Ton professionnel, direct, sans bonjour ni formule de politesse.
-Utilise des emojis discrets pour structurer (📍 🗓️ ⚖️ 📦 ⚠️). Pas de phrases longues.
-Structure type : 📍 [Départ] → [Arrivée] puis les infos clés sur les lignes suivantes.
+Tu génères des annonces ultra-courtes et codées pour proposer des missions aux transporteurs.
+
+${dateContext}
+
+Format strict, exactement 4 lignes, sans emoji, sans phrase, sans bonjour ni politesse :
+Ligne 1 : [Code pays ISO2][Code postal] [Ville de départ]
+Ligne 2 : [Code pays ISO2][Code postal] [Ville d'arrivée]
+Ligne 3 : [Nombre] [type de colisage] [Longueur]*[Largeur]*[Hauteur] / [Poids]kg
+Ligne 4 : contraintes/instructions en abrégé, incluant le créneau de chargement et/ou de livraison si fournis (enlèvement, livraison, particularités)
+
+Le [type de colisage] doit reprendre exactement ce que l'utilisateur a indiqué (ex. "pals", "palettes", "colis", "cartons"), sans le remplacer par un autre mot. Si rien n'est précisé, utilise "colis".
+
+Les dimensions [Longueur]*[Largeur]*[Hauteur] doivent toujours être séparées par "*", quel que soit le séparateur utilisé par l'utilisateur en entrée (x, ×, /, -, espace…). N'utilise jamais "/" entre les dimensions : ce caractère est réservé uniquement à la séparation entre les dimensions et le poids, pour éviter toute confusion.
+
+Gestion des dates de chargement/livraison sur la ligne 4 : calcule d'abord la date calendaire réelle correspondant au jour ou à la date indiqués, en te basant sur la date du jour ci-dessus (ex. si on est lundi et que l'utilisateur écrit "mardi", la date calendaire réelle est le lendemain).
+- Si cette date correspond au jour même, écris "today" (anglais) / "aujourd'hui" (français).
+- Si cette date correspond au lendemain (jour calendaire suivant), écris "tomorrow" (anglais) / "demain" (français).
+- Pour toute autre date (ni aujourd'hui ni demain), écris toujours la date au format JJ/MM (ex. "26/06"), jamais le nom du jour, même si l'utilisateur a fourni un nom de jour plutôt qu'une date.
+
+Règle générale très importante : n'affiche jamais de placeholder (ex. "/ -", "N/A", "?") pour une information manquante. Toute donnée absente (poids, dimensions, contraintes, etc.) doit simplement être retirée de la ligne concernée, sans laisser de trace (espace, séparateur "/" ou ponctuation orpheline). Si toute la ligne 4 est sans objet (aucune contrainte/instruction fournie), supprime entièrement la ligne 4 plutôt que de la laisser vide ou inventée.
+
+Exemple (Paris → Rennes) :
+FR75001 Paris
+FR35000 Rennes
+3 pals 75*100*110 / 10kg
+load asap, direct del
+
+("load asap, direct del" signifie : enlèvement au plus vite, livraison directe sans transit.)
+Utilise des abréviations courtes et efficaces sur la ligne 4 (asap, direct del, hayon, ADR, etc.).
+
+Lexique transport FR → EN à respecter quand la ligne 4 est en anglais : "20m3 débachable" → "20m3 curtain side" (idem pour les autres tonnages, ex. "90m3 débachable" → "90m3 curtain side").
 ${langInstruction}`;
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('/api/generate', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': API_KEY,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
         max_tokens: 400,
         system,
         messages: [{ role: 'user', content: userPrompt }]
@@ -642,12 +755,19 @@ ${langInstruction}`;
     const data = await response.json();
     if (data.error) throw new Error(data.error.message);
     const text = data.content?.map(b => b.text || '').join('') || '';
-    box.textContent = text.trim();
+    box.value = text.trim();
     result.classList.add('visible');
+    autoGrow(box);
   } catch(e) {
-    box.textContent = '❌ Erreur : ' + e.message;
+    box.value = '❌ Erreur : ' + e.message;
     result.classList.add('visible');
+    autoGrow(box);
   }
+}
+
+function autoGrow(textarea) {
+  textarea.style.height = 'auto';
+  textarea.style.height = textarea.scrollHeight + 'px';
 }
 
 function setLoading(btnId, loading) {
@@ -668,14 +788,15 @@ async function generateFromForm() {
   const fields = {
     Départ: depart, Arrivée: arrivee,
     Colisage: document.getElementById('f-colisage').value.trim(),
-    Poids: document.getElementById('f-poids').value.trim(),
     Dimensions: document.getElementById('f-dims').value.trim(),
-    'Date / créneau': document.getElementById('f-date').value.trim(),
+    Poids: document.getElementById('f-poids').value.trim(),
+    Chargement: document.getElementById('f-date').value.trim(),
+    Livraison: document.getElementById('f-livraison').value.trim(),
     Contraintes: document.getElementById('f-contraintes').value.trim()
   };
   const prompt = Object.entries(fields).filter(([,v]) => v).map(([k,v]) => `${k} : ${v}`).join('\n');
   setLoading('btn-form', true);
-  await callClaude('Génère une annonce transport WhatsApp :\n' + prompt);
+  await callClaude('Génère une annonce transport :\n' + prompt);
   setLoading('btn-form', false);
 }
 
@@ -683,7 +804,7 @@ async function generateFromText() {
   const input = document.getElementById('t-input').value.trim();
   if (!input) { showToast('Colle un texte d\'abord'); return; }
   setLoading('btn-text', true);
-  await callClaude('Extrais les infos et génère une annonce WhatsApp transport :\n\n' + input);
+  await callClaude('Extrais les infos et génère une annonce transport :\n\n' + input);
   setLoading('btn-text', false);
 }
 
@@ -697,12 +818,7 @@ async function regenerate() {
 }
 
 function copyResult() {
-  navigator.clipboard.writeText(document.getElementById('result-text').textContent).then(() => showToast('✓ Copié !'));
-}
-
-function shareWhatsApp() {
-  const text = document.getElementById('result-text').textContent;
-  window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
+  navigator.clipboard.writeText(document.getElementById('result-text').value).then(() => showToast('✓ Copié !'));
 }
 
 /* ── TOAST ── */
