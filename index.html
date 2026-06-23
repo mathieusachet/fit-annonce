@@ -532,8 +532,8 @@
     </div>
     <div class="generate-row">
       <div class="lang-toggle">
-        <button class="lang-btn active" data-lang="fr" onclick="setLang('fr')">🇫🇷 FR</button>
-        <button class="lang-btn" data-lang="en" onclick="setLang('en')">🇬🇧 EN</button>
+        <button class="lang-btn active" data-lang="fr" onclick="setLang('fr')">FR</button>
+        <button class="lang-btn" data-lang="en" onclick="setLang('en')">EN</button>
       </div>
       <button class="btn-primary" onclick="generateFromForm()" id="btn-form">
         Générer l'annonce
@@ -552,8 +552,8 @@
     </div>
     <div class="generate-row">
       <div class="lang-toggle">
-        <button class="lang-btn active" data-lang="fr" onclick="setLang('fr')">🇫🇷 FR</button>
-        <button class="lang-btn" data-lang="en" onclick="setLang('en')">🇬🇧 EN</button>
+        <button class="lang-btn active" data-lang="fr" onclick="setLang('fr')">FR</button>
+        <button class="lang-btn" data-lang="en" onclick="setLang('en')">EN</button>
       </div>
       <button class="btn-primary" onclick="generateFromText()" id="btn-text">
         Extraire et générer
@@ -612,11 +612,26 @@ function switchTab(tab) {
   document.getElementById('result-area').classList.remove('visible');
 }
 
-/* ── AUTOCOMPLETE VILLE/CP MONDE (Nominatim/OpenStreetMap) ── */
+/* ── AUTOCOMPLETE VILLE/CP : FRANCE (api.gouv.fr, rapide/exhaustif) + MONDE (Nominatim) ── */
 let acTimers = {};
 
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+}
+
+function renderAcList(list, input, listId, items, settled) {
+  if (!items.length) { if (settled) list.classList.remove('open'); return; }
+  list.innerHTML = items.slice(0, 10).map(it =>
+    `<div class="ac-item" data-val="${escapeHtml(`${it.country}${it.cp} ${it.nom}`.trim())}">
+      <span class="ac-cp">${escapeHtml(it.country + it.cp)}</span>
+      <span class="ac-city">${escapeHtml(it.nom)}</span>
+      <span class="ac-dept">${escapeHtml(it.country)}</span>
+    </div>`
+  ).join('');
+  list.querySelectorAll('.ac-item').forEach(el => {
+    el.addEventListener('click', () => selectAC(listId, input.id, el.dataset.val));
+  });
+  list.classList.add('open');
 }
 
 async function acSearch(input, listId) {
@@ -625,37 +640,51 @@ async function acSearch(input, listId) {
   clearTimeout(acTimers[listId]);
   if (q.length < 2) { list.classList.remove('open'); return; }
 
-  acTimers[listId] = setTimeout(async () => {
-    try {
-      const isNum = /^\d/.test(q);
-      const param = isNum ? `postalcode=${encodeURIComponent(q)}` : `q=${encodeURIComponent(q)}`;
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?${param}&format=json&addressdetails=1&limit=8`);
-      const data = await res.json();
-      if (!data.length) { list.classList.remove('open'); return; }
+  acTimers[listId] = setTimeout(() => {
+    const isNum = /^\d/.test(q);
+    let frItems = [];
+    let worldItems = [];
+    let doneCount = 0;
+    const isStale = () => input.value.trim() !== q;
+    const render = () => {
+      if (isStale()) return;
+      doneCount++;
+      renderAcList(list, input, listId, frItems.concat(worldItems), doneCount >= 2);
+    };
 
-      const items = data
-        .map(d => {
-          const addr = d.address || {};
-          const nom = addr.city || addr.town || addr.village || addr.municipality || addr.county || (d.display_name || '').split(',')[0];
-          const cp = addr.postcode || '';
-          const country = (addr.country_code || '').toUpperCase();
-          return { cp, nom, country };
-        })
-        .filter(it => it.nom);
+    (async () => {
+      try {
+        const param = isNum ? `codePostal=${encodeURIComponent(q)}` : `nom=${encodeURIComponent(q)}&boost=population`;
+        const res = await fetch(`https://geo.api.gouv.fr/communes?${param}&fields=nom,codesPostaux&limit=10`);
+        const data = await res.json();
+        const out = [];
+        data.forEach(c => {
+          const cps = isNum ? c.codesPostaux.filter(cp => cp.startsWith(q)) : c.codesPostaux.slice(0, 1);
+          cps.slice(0, 2).forEach(cp => out.push({ cp, nom: c.nom, country: 'FR' }));
+        });
+        frItems = out;
+      } catch(e) {}
+      render();
+    })();
 
-      list.innerHTML = items.map(it =>
-        `<div class="ac-item" data-val="${escapeHtml(`${it.country}${it.cp} ${it.nom}`.trim())}">
-          <span class="ac-cp">${escapeHtml(it.country + it.cp)}</span>
-          <span class="ac-city">${escapeHtml(it.nom)}</span>
-          <span class="ac-dept">${escapeHtml(it.country)}</span>
-        </div>`
-      ).join('');
-      list.querySelectorAll('.ac-item').forEach(el => {
-        el.addEventListener('click', () => selectAC(listId, input.id, el.dataset.val));
-      });
-      list.classList.add('open');
-    } catch(e) {}
-  }, 280);
+    (async () => {
+      try {
+        const param = isNum ? `postalcode=${encodeURIComponent(q)}` : `q=${encodeURIComponent(q)}`;
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?${param}&format=json&addressdetails=1&limit=8`);
+        const data = await res.json();
+        worldItems = data
+          .map(d => {
+            const addr = d.address || {};
+            const nom = addr.city || addr.town || addr.village || addr.municipality || addr.county || (d.display_name || '').split(',')[0];
+            const cp = addr.postcode || '';
+            const country = (addr.country_code || '').toUpperCase();
+            return { cp, nom, country };
+          })
+          .filter(it => it.nom && it.country !== 'FR');
+      } catch(e) {}
+      render();
+    })();
+  }, 180);
 }
 
 function selectAC(listId, inputId, val) {
