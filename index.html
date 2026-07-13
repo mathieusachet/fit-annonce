@@ -466,7 +466,7 @@
   <p class="subtitle">Crée une annonce pour les transporteurs en quelques secondes.</p>
 
   <div class="tabs">
-    <button class="tab active" onclick="switchTab('form')" id="tab-form">
+    <button class="tab" onclick="switchTab('form')" id="tab-form">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
       Formulaire
     </button>
@@ -474,10 +474,14 @@
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
       Texte libre
     </button>
+    <button class="tab active" onclick="switchTab('reponse')" id="tab-reponse">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10h18M3 10l4-6h10l4 6M3 10v9a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-9"/><circle cx="7.5" cy="14.5" r="1.5"/><circle cx="16.5" cy="14.5" r="1.5"/></svg>
+      Réponse FIT
+    </button>
   </div>
 
   <!-- FORM PANEL -->
-  <div id="panel-form" class="panel active">
+  <div id="panel-form" class="panel">
     <div class="card">
       <div class="row2">
         <div class="field">
@@ -561,6 +565,53 @@
     </div>
   </div>
 
+  <!-- REPONSE PANEL -->
+  <div id="panel-reponse" class="panel active">
+    <div class="card">
+      <div class="field">
+        <label>Annonce concernée</label>
+        <textarea id="r-annonce" placeholder="Colle ou rappelle l'annonce FIT à laquelle tu réponds…" style="min-height: 90px;"></textarea>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>TOP (temps d'approche)</label>
+          <input type="text" id="r-top" placeholder="ex. 30min" />
+        </div>
+        <div class="field">
+          <label>Temps de transit</label>
+          <input type="text" id="r-transit" placeholder="ex. 2h15" />
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>Tarif HT</label>
+          <input type="text" id="r-tarif" placeholder="ex. 350" />
+        </div>
+        <div class="field">
+          <label>Type de véhicule</label>
+          <select id="r-vehicule">
+            <option value="">—</option>
+            <option>Voiture</option>
+            <option>Break</option>
+            <option>Fourgon tolé</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Autoroute</label>
+        <div class="lang-toggle" id="r-autoroute-toggle">
+          <button type="button" class="lang-btn active" data-val="oui" onclick="setBoolToggle('r-autoroute-toggle', this)">Oui</button>
+          <button type="button" class="lang-btn" data-val="non" onclick="setBoolToggle('r-autoroute-toggle', this)">Non</button>
+        </div>
+      </div>
+    </div>
+    <div class="generate-row">
+      <button class="btn-primary" onclick="generateReponse()" id="btn-reponse">
+        Générer la réponse
+      </button>
+    </div>
+  </div>
+
   <!-- RESULT -->
   <div id="result-area" class="result-area">
     <div class="section-divider">Résultat</div>
@@ -570,7 +621,7 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
         Copier
       </button>
-      <button class="btn-sm" onclick="regenerate()">
+      <button class="btn-sm" onclick="regenerate()" id="btn-regenerate">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
         Reformuler
       </button>
@@ -605,7 +656,7 @@ function applyPickedDate(dateInput, textInputId) {
 
 /* ── TABS ── */
 function switchTab(tab) {
-  ['form','text'].forEach(t => {
+  ['form','text','reponse'].forEach(t => {
     document.getElementById('panel-' + t).classList.toggle('active', t === tab);
     document.getElementById('tab-' + t).classList.toggle('active', t === tab);
   });
@@ -720,9 +771,48 @@ document.addEventListener('click', e => {
 
 document.getElementById('result-text').addEventListener('input', e => autoGrow(e.target));
 
+/* ── BOOL TOGGLE ── */
+function setBoolToggle(containerId, btn) {
+  document.getElementById(containerId).querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function getBoolToggle(containerId) {
+  return document.getElementById(containerId).querySelector('.lang-btn.active')?.dataset.val || 'non';
+}
+
+/* ── REPONSE FIT ── */
+function generateReponse() {
+  const annonce = document.getElementById('r-annonce').value.trim();
+  const top = document.getElementById('r-top').value.trim();
+  const transit = document.getElementById('r-transit').value.trim();
+  const tarif = document.getElementById('r-tarif').value.trim();
+  const vehicule = document.getElementById('r-vehicule').value.trim();
+  const autoroute = getBoolToggle('r-autoroute-toggle');
+
+  const lines = [];
+  if (top) lines.push(`⏱️ TOP ${top}`);
+  if (transit) lines.push(`⏳ Transit ${transit}`);
+  if (tarif) lines.push(`💶 ${tarif}€ HT`);
+  lines.push(`🛣️ Autoroute : ${autoroute}`);
+  if (vehicule) lines.push(`🚚 Véhicule : ${vehicule}`);
+
+  let text = lines.join('\n');
+  if (annonce) text = `📋 RE: ${annonce}` + (text ? '\n\n' + text : '');
+
+  lastPrompt = '';
+  document.getElementById('btn-regenerate').style.display = 'none';
+  const result = document.getElementById('result-area');
+  const box = document.getElementById('result-text');
+  box.value = text;
+  result.classList.add('visible');
+  autoGrow(box);
+}
+
 /* ── AI CALL ── */
 async function callClaude(userPrompt) {
   lastPrompt = userPrompt;
+  document.getElementById('btn-regenerate').style.display = '';
   const result = document.getElementById('result-area');
   const box = document.getElementById('result-text');
   result.classList.remove('visible');
